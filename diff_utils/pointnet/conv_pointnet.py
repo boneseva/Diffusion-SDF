@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn import init
 
-from torch_scatter import scatter_mean, scatter_max
+# from torch_scatter import scatter_mean, scatter_max
 
 
 class ConvPointnet(nn.Module):
@@ -47,10 +47,12 @@ class ConvPointnet(nn.Module):
         self.plane_type = plane_type
         self.padding = padding
 
-        if scatter_type == 'max':
-            self.scatter = scatter_max
-        elif scatter_type == 'mean':
-            self.scatter = scatter_mean
+        ## if scatter_type == 'max':
+        ##   self.scatter = torch.scatter
+        ## elif scatter_type == 'mean':
+        ##    self.scatter = scatter_mean
+
+        self.scatter = torch.scatter
 
 
     # takes in "p": point cloud and "query": sdf_xyz 
@@ -148,8 +150,8 @@ class ConvPointnet(nn.Module):
         for key in keys:
             # scatter plane features from points
             fea = self.scatter(c.permute(0, 2, 1), index[key], dim_size=self.reso_plane**2)
-            if self.scatter == scatter_max:
-                fea = fea[0]
+           # if self.scatter == scatter_max:
+            fea = fea[0]
             # gather feature back to points
             fea = fea.gather(dim=2, index=index[key].expand(-1, fea_dim, -1))
             c_out += fea
@@ -164,7 +166,8 @@ class ConvPointnet(nn.Module):
         # scatter plane features from points
         fea_plane = c.new_zeros(p.size(0), self.c_dim, self.reso_plane**2)
         c = c.permute(0, 2, 1) # B x 512 x T
-        fea_plane = scatter_mean(c, index, out=fea_plane) # B x 512 x reso^2
+        # fea_plane = scatter_mean(c, index, out=fea_plane) # B x 512 x reso^2
+        fea_plane = torch.scatter(src=c, dim=-1, index=index, out=fea_plane) # B x 512 x reso^2
         fea_plane = fea_plane.reshape(p.size(0), self.c_dim, self.reso_plane, self.reso_plane) # sparce matrix (B x 512 x reso x reso)
 
         # process the plane features with UNet
