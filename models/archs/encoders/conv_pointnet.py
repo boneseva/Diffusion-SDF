@@ -5,6 +5,21 @@ from torch.nn import init
 
 # from torch_scatter import scatter_mean, scatter_max
 
+# Replace scatter_mean
+def scatter_mean(src, index, dim_size):
+    out = torch.zeros(dim_size, src.shape[1], device=src.device)
+    count = torch.zeros(dim_size, device=src.device)
+    out.scatter_add_(0, index.unsqueeze(-1).expand_as(src), src)
+    count.scatter_add_(0, index, torch.ones_like(index))
+    count = count.clamp(min=1)
+    return out / count.unsqueeze(-1)
+
+# Replace scatter_max
+def scatter_max(src, index, dim_size):
+    out = torch.full((dim_size, src.shape[1]), float('-inf'), device=src.device)
+    out = out.scatter(0, index.unsqueeze(-1).expand_as(src), src, reduce='max')
+    return out
+
 
 class ConvPointnet(nn.Module):
     ''' PointNet-based encoder network with ResNet blocks for each point.
@@ -48,23 +63,19 @@ class ConvPointnet(nn.Module):
         self.plane_type = plane_type
         self.padding = padding
 
-       ## if scatter_type == 'max':
-         ##   self.scatter = torch.scatter
-       ## elif scatter_type == 'mean':
-        ##    self.scatter = scatter_mean
+        if scatter_type == 'max':
+           self.scatter = scatter_max
+        elif scatter_type == 'mean':
+            self.scatter = scatter_mean
 
-        self.scatter = torch.scatter
+      #  self.scatter = torch.scatter
 
     def generate_plane_features(self, p, c, plane='xz'):
         # acquire indices of features in plane
         xy = self.normalize_coordinate(p.clone(), plane=plane, padding=self.padding) # normalize to the range of (0, 1)
         index = self.coordinate2index(xy, self.reso_plane)
 
-        # scatter plane features from points
-        fea_plane = c.new_zeros(p.size(0), self.c_dim, self.reso_plane**2)
-        c = c.permute(0, 2, 1) # B x 512 x T
-     #   fea_plane = scatter_mean(c, index, out=fea_plane) # B x 512 x reso^2
-        fea_plane = torch.scatter(src=c, dim=-1, index=index, out=fea_plane) # B x 512 x reso^2
+        fea_plane = scatter_mean(c.permute(0, 2, 1), index, dim_size=self.reso_plane**2)
         fea_plane = fea_plane.reshape(p.size(0), self.c_dim, self.reso_plane, self.reso_plane) # sparce matrix (B x 512 x reso x reso)
 
         # process the plane features with UNet
@@ -244,10 +255,10 @@ class ConvPointnet(nn.Module):
 
         c_out = 0
         for key in keys:
-            # scatter plane features from points
-            fea = self.scatter(c.permute(0, 2, 1), index[key], dim_size=self.reso_plane**2)
-            #if self.scatter == scatter_max:
-            fea = fea[0]
+            if self.scatter == scatter_max:
+                fea = scatter_max(c.permute(0, 2, 1), index[key], dim_size=self.reso_plane ** 2)
+            else:  # scatter_mean
+                fea = scatter_mean(c.permute(0, 2, 1), index[key], dim_size=self.reso_plane ** 2)
             # gather feature back to points
             fea = fea.gather(dim=2, index=index[key].expand(-1, fea_dim, -1))
             c_out += fea
