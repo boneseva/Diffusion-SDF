@@ -161,6 +161,12 @@ class View(nn.Module):
     def forward(self, x):
         return x.view(self.shape)
 
+def get_latest_checkpoint(checkpoint_dir):
+    checkpoints = [f for f in os.listdir(checkpoint_dir) if f.endswith('.ckpt')]
+    if not checkpoints:
+        return None
+    latest_checkpoint = max(checkpoints, key=lambda x: os.path.getctime(os.path.join(checkpoint_dir, x)))
+    return os.path.join(checkpoint_dir, latest_checkpoint)
 
 def train():
     torch.set_float32_matmul_precision('high')
@@ -170,8 +176,11 @@ def train():
         'batch_size': 8,
         'latent_dim': 256,
         'max_epochs': 10000,
-        'data_path': rf'C:\Users\eva.bones\Documents\Diffusion-SDF\testing\{organelle}_sdf'
+        'data_path': rf'C:\Users\eva.bones\Documents\Diffusion-SDF\testing\{organelle}_sdf',
+        'checkpoint_path': 'checkpoints/'
     }
+
+    checkpoint = get_latest_checkpoint(config['checkpoint_path'])
 
     date = datetime.datetime.now(pytz.timezone("Europe/Berlin"))
     formatted_date = date.strftime("%d/%m")
@@ -195,7 +204,12 @@ def train():
         persistent_workers=True
     )
 
-    model = VoxelVAE(latent_dim=config['latent_dim'])
+    if checkpoint:
+        print(f"Loading model from checkpoint: {checkpoint}")
+        model = VoxelVAE.load_from_checkpoint(checkpoint, latent_dim=config['latent_dim'])
+    else:
+        print("No checkpoint found. Training from scratch.")
+        model = VoxelVAE(latent_dim=config['latent_dim'])
 
     trainer = pl.Trainer(
         accelerator='gpu' if torch.cuda.is_available() else 'cpu',
