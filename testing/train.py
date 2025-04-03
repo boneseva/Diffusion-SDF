@@ -133,6 +133,14 @@ class VoxelVAE(pl.LightningModule):
                 input_slice = batch[0][0][32].cpu().numpy()  # Middle slice (z-axis)
                 recon_slice = recon[0][0][32].cpu().numpy()
 
+                #change the colors of images to jet color scheme
+                input_slice = (input_slice - input_slice.min()) / (input_slice.max() - input_slice.min())
+                recon_slice = (recon_slice - recon_slice.min()) / (recon_slice.max() - recon_slice.min())
+                input_slice = (input_slice * 255).astype(np.uint8)
+                recon_slice = (recon_slice * 255).astype(np.uint8)
+                input_slice = np.stack([input_slice] * 3, axis=-1)  # Convert to RGB
+                recon_slice = np.stack([recon_slice] * 3, axis=-1)
+
                 self.logger.experiment.log({
                     "epoch": self.current_epoch,
                     "input_slice": wandb.Image(input_slice),
