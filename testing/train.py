@@ -171,13 +171,13 @@ def get_latest_checkpoint(checkpoint_dir):
 def train():
     torch.set_float32_matmul_precision('high')
 
-    organelle = "lyso"
+    organelle = "fv"
     config = {
         'batch_size': 8,
         'latent_dim': 256,
         'max_epochs': 10000,
         'data_path': rf'C:\Users\eva.bones\Documents\Diffusion-SDF\testing\{organelle}_sdf',
-        'checkpoint_path': 'checkpoints/'
+        'checkpoint_path': './checkpoints/'
     }
 
     checkpoint = get_latest_checkpoint(config['checkpoint_path'])

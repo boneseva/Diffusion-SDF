@@ -187,10 +187,10 @@ def save_code_to_conf(conf_dir):
     os.makedirs(path, exist_ok=True)
     for folder in ["utils", "models", "diff_utils", "dataloader", "metrics"]: 
         os.makedirs(os.path.join(path, folder), exist_ok=True)
-        os.system("""cp -r ./{0}/* "{1}" """.format(folder, os.path.join(path, folder)))
+        os.system("""copy -r ./{0}/* "{1}" """.format(folder, os.path.join(path, folder)))
 
     # other files
-    os.system("""cp *.py "{}" """.format(path))
+    os.system("""copy *.py "{}" """.format(path))
 
 class ScheduledOpt:
     '''

@@ -5,19 +5,91 @@ from torch.nn import init
 
 # from torch_scatter import scatter_mean, scatter_max
 
-# Replace scatter_mean
-def scatter_mean(src, index, dim_size):
-    out = torch.zeros(dim_size, src.shape[1], device=src.device)
-    count = torch.zeros(dim_size, device=src.device)
-    out.scatter_add_(0, index.unsqueeze(-1).expand_as(src), src)
-    count.scatter_add_(0, index, torch.ones_like(index))
-    count = count.clamp(min=1)
-    return out / count.unsqueeze(-1)
+import torch
 
-# Replace scatter_max
-def scatter_max(src, index, dim_size):
-    out = torch.full((dim_size, src.shape[1]), float('-inf'), device=src.device)
-    out = out.scatter(0, index.unsqueeze(-1).expand_as(src), src, reduce='max')
+
+def scatter_mean(src, index, out=None, dim_size=None):
+    """
+    Custom implementation of scatter_mean with proper dimension handling.
+
+    Args:
+        src (torch.Tensor): Source tensor of shape `(B, F, N)` (Batch, Features, Points).
+        index (torch.Tensor): Index tensor of shape `(B, N)` specifying where to scatter.
+        out (torch.Tensor): Optional output tensor of shape `(B, F, dim_size)` to update.
+        dim_size (int): Optional size of the output tensor along the scatter dimension.
+
+    Returns:
+        torch.Tensor: Updated `out` tensor with mean values scattered into it.
+    """
+    batch_size, feature_dim, num_points = src.size()
+
+    # Determine dim_size if not provided
+    if dim_size is None:
+        dim_size = index.max().item() + 1  # Infer size from index
+
+    # Initialize out and count tensors if not provided
+    if out is None:
+        out = torch.zeros(batch_size, feature_dim, dim_size, device=src.device)
+    count = torch.zeros(batch_size, feature_dim, dim_size, device=src.device)
+
+    # Ensure index has the correct shape
+    if index.dim() == 2:  # Expected shape: (B, N)
+        index_expanded = index.unsqueeze(1).expand(batch_size, feature_dim, num_points)
+    elif index.dim() == 3:  # Already expanded
+        index_expanded = index
+    elif index.dim() == 4:  # Extra dimension detected
+        index_expanded = index.squeeze(2).unsqueeze(1).expand(batch_size, feature_dim, num_points)
+    else:
+        raise ValueError(f"Unexpected index shape: {index.shape}. Expected (B, N), (B, F, N), or (B, 1, 1, N).")
+
+    # Scatter-add values from src into out
+    out.scatter_add_(2, index_expanded, src)
+
+    # Scatter-add ones into count to track occurrences
+    count.scatter_add_(2, index_expanded, torch.ones_like(src))
+
+    # Avoid division by zero
+    count = torch.clamp(count, min=1)
+
+    # Compute mean by dividing summed values by their counts
+    out /= count
+
+    return out
+
+def scatter_max(src, index, out=None, dim_size=None):
+    """
+    Custom implementation of scatter_max with optional dim_size.
+
+    Args:
+        src (torch.Tensor): Source tensor of shape `(B, F, N)` (Batch, Features, Points).
+        index (torch.Tensor): Index tensor of shape `(B, N)` specifying where to scatter.
+        out (torch.Tensor): Optional output tensor of shape `(B, F, dim_size)` to update.
+        dim_size (int): Optional size of the output tensor along the scatter dimension.
+
+    Returns:
+        torch.Tensor: Updated `out` tensor with max values scattered into it.
+    """
+    batch_size, feature_dim, num_points = src.size()
+
+    # Determine dim_size if not provided
+    if dim_size is None:
+        dim_size = index.max().item() + 1  # Infer size from index
+
+    # Initialize out tensor if not provided
+    if out is None:
+        out = torch.full((batch_size, feature_dim, dim_size), float('-inf'), device=src.device)
+
+    # Ensure index has the correct shape
+    if index.dim() == 2:  # Expected shape: (B, N)
+        index_expanded = index.unsqueeze(1).expand(batch_size, feature_dim, num_points)
+    elif index.dim() == 3:  # Already expanded
+        index_expanded = index
+    else:
+        raise ValueError(f"Unexpected index shape: {index.shape}. Expected (B, N) or (B, F, N).")
+
+    # Scatter max values into out
+    out.scatter_(2, index_expanded, src)
+
     return out
 
 
@@ -259,7 +331,7 @@ class ConvPointnet(nn.Module):
                 fea = scatter_max(c.permute(0, 2, 1), index[key], dim_size=self.reso_plane ** 2)
             else:  # scatter_mean
                 fea = scatter_mean(c.permute(0, 2, 1), index[key], dim_size=self.reso_plane ** 2)
-            # gather feature back to points
+
             fea = fea.gather(dim=2, index=index[key].expand(-1, fea_dim, -1))
             c_out += fea
         return c_out.permute(0, 2, 1)

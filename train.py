@@ -30,7 +30,8 @@ from dataloader.modulation_loader import ModulationLoader
 
 
 def train():
-    
+    torch.set_float32_matmul_precision('high')  # Or 'high'
+
     # initialize dataset and loader
     split = json.load(open(specs["TrainSplit"], "r"))
     if specs['training_task'] == 'diffusion':
@@ -96,7 +97,7 @@ if __name__ == "__main__":
         help="continue from previous saved logs, integer value, 'last', or 'finetune'",
     )
 
-    arg_parser.add_argument("--batch_size", "-b", default=32, type=int)
+    arg_parser.add_argument("--batch_size", "-b", default=2, type=int)
     arg_parser.add_argument( "--workers", "-w", default=8, type=int)
 
     args = arg_parser.parse_args()

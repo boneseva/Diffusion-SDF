@@ -14,11 +14,17 @@ def scatter_mean(src, index, dim_size):
     count = count.clamp(min=1)
     return out / count.unsqueeze(-1)
 
-# Replace scatter_max
+
 def scatter_max(src, index, dim_size):
-    out = torch.full((dim_size, src.shape[1]), float('-inf'), device=src.device)
-    out = out.scatter(0, index.unsqueeze(-1).expand_as(src), src, reduce='max')
+    # Create an output tensor filled with -inf for max pooling
+    out = torch.full((src.size(0), dim_size, src.size(2)), float('-inf'), device=src.device)
+    # Expand index to match src's shape
+    index_expanded = index.unsqueeze(1).expand(-1, src.size(1), -1)
+    # Perform scatter operation
+    out = out.scatter(1, index_expanded, src)
+
     return out
+
 
 class ConvPointnet(nn.Module):
     ''' PointNet-based encoder network with ResNet blocks for each point.
