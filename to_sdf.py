@@ -86,11 +86,11 @@ def process_all_nifti_files(input_folder, output_folder, target_shape=(80, 80, 8
 
 if __name__ == "__main__":
     # Input and output directories
-    input_dir = r"C:\Users\evabo\Documents\Repos\Statistic-Models-For-Cellular-Structures\Lyso_single\In_center\Framed"
+    input_dir = r"C:\Users\evabo\Documents\Repos\Statistic-Models-For-Cellular-Structures\lyso_single\In_center\Framed"
     output_dir = r"C:\Users\evabo\Documents\Repos\Diffusion-SDF\testing\lyso_sdf"
 
     # Target shape for padding
-    target_resolution = (80, 80, 80)
+    target_resolution = (128, 128, 128)
 
     # Process all files in the input directory
     process_all_nifti_files(input_dir, output_dir, target_resolution)

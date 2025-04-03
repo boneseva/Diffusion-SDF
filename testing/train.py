@@ -36,6 +36,19 @@ class RandomFlip3D:
                 x = torch.flip(x, [axis])
         return x
 
+class CropCenter3D:
+    def __init__(self, target_size):
+        self.target_size = target_size
+
+    def __call__(self, x):
+        _, D, H, W = x.shape
+        d_start = (D - self.target_size) // 2
+        h_start = (H - self.target_size) // 2
+        w_start = (W - self.target_size) // 2
+        return x[:, d_start:d_start + self.target_size,
+                  h_start:h_start + self.target_size,
+                  w_start:w_start + self.target_size]
+
 
 class VoxelSDFDataset(Dataset):
     def __init__(self, sdf_dir, transform=None):
@@ -75,13 +88,13 @@ class VoxelVAE(pl.LightningModule):
             nn.Conv3d(128, 256, 3, stride=2, padding=1),
             nn.GELU(),
             nn.Flatten(),
-            nn.Linear(256 * 16 * 16 * 16, latent_dim * 2)
+            nn.Linear(256 * 8 * 8 * 8, latent_dim * 2)
         )
 
         # Decoder
         self.decoder = nn.Sequential(
-            nn.Linear(latent_dim, 256 * 16 * 16 * 16),
-            View((-1, 256, 16, 16, 16)),
+            nn.Linear(latent_dim, 256 * 8 * 8 * 8),
+            View((-1, 256, 8, 8, 8)),
             nn.ConvTranspose3d(256, 128, 3, stride=2, padding=1, output_padding=1),
             nn.GELU(),
             nn.ConvTranspose3d(128, 64, 3, stride=2, padding=1, output_padding=1),
@@ -117,8 +130,8 @@ class VoxelVAE(pl.LightningModule):
 
         if batch_idx == 0 and self.current_epoch % 5 == 0:  # Log every 5 epochs
             with torch.no_grad():
-                input_slice = batch[0][0][64].cpu().numpy()  # Middle slice (z-axis)
-                recon_slice = recon[0][0][64].cpu().numpy()
+                input_slice = batch[0][0][32].cpu().numpy()  # Middle slice (z-axis)
+                recon_slice = recon[0][0][32].cpu().numpy()
 
                 self.logger.experiment.log({
                     "epoch": self.current_epoch,
@@ -161,6 +174,7 @@ def train():
 
     train_transform = transforms.Compose([
         RandomFlip3D(p=0.5),  # 50% chance per axis
+        CropCenter3D(target_size=64),  # Center crop to 64x64x64
     ])
 
     dataset = VoxelSDFDataset(config['data_path'], transform=train_transform)
