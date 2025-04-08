@@ -124,11 +124,26 @@ class VoxelVAE(pl.LightningModule):
         self.log_dict({
             'train_loss': total_loss,
             'recon_loss': recon_loss,
-            'kl_loss': kl_loss,
-            'gpu_mem': torch.cuda.max_memory_allocated() / 1e9
+            'kl_loss': kl_loss
         })
 
         if batch_idx == 0 and self.current_epoch % 5 == 0:  # Log every 5 epochs
+            # Create save directory
+            save_dir = "training_samples"
+            os.makedirs(save_dir, exist_ok=True)
+
+            # Select random sample from batch
+            random_idx = torch.randint(0, batch.size(0), (1,)).item()
+
+            # Save input and reconstruction
+            input_vol = batch[random_idx].cpu().detach().numpy().squeeze().astype(np.float32)
+            recon_vol = recon[random_idx].cpu().detach().numpy().squeeze().astype(np.float32)
+
+            nib.save(nib.Nifti1Image(input_vol, np.eye(4)),
+                     os.path.join(save_dir, f"{self.current_epoch:04d}_input.nii.gz"))
+            nib.save(nib.Nifti1Image(recon_vol, np.eye(4)),
+                     os.path.join(save_dir, f"{self.current_epoch:04d}_reconstructed.nii.gz"))
+
             with torch.no_grad():
                 input_slice = batch[0][0][32].cpu().numpy()  # Middle slice (z-axis)
                 recon_slice = recon[0][0][32].cpu().numpy()
@@ -171,9 +186,9 @@ def get_latest_checkpoint(checkpoint_dir):
 def train():
     torch.set_float32_matmul_precision('high')
 
-    organelle = "fv"
+    organelle = "lyso"
     config = {
-        'batch_size': 8,
+        'batch_size': 32,
         'latent_dim': 256,
         'max_epochs': 10000,
         'data_path': rf'C:\Users\eva.bones\Documents\Diffusion-SDF\testing\{organelle}_sdf',
@@ -218,18 +233,9 @@ def train():
         max_epochs=config['max_epochs'],
         logger=wandb_logger,
         callbacks=[ModelCheckpoint(dirpath='checkpoints')],
-        log_every_n_steps=2
     )
 
-    with profiler.profile(
-            activities=[
-                profiler.ProfilerActivity.CPU,
-                profiler.ProfilerActivity.CUDA],
-            on_trace_ready=profiler.tensorboard_trace_handler('./log')
-    ) as prof:
-        trainer.fit(model, loader)
-
-    print(prof.key_averages().table(sort_by="cuda_time_total"))
+    trainer.fit(model, loader)
 
 
 if __name__ == '__main__':
