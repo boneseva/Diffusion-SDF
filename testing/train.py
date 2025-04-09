@@ -145,8 +145,8 @@ class VoxelVAE(pl.LightningModule):
                      os.path.join(save_dir, f"{self.current_epoch:04d}_reconstructed.nii.gz"))
 
             with torch.no_grad():
-                input_slice = batch[0][0][32].cpu().numpy()  # Middle slice (z-axis)
-                recon_slice = recon[0][0][32].cpu().numpy()
+                input_slice = batch[0][0][64].cpu().numpy()  # Middle slice (z-axis)
+                recon_slice = recon[0][0][64].cpu().numpy()
 
                 #change the colors of images to jet color scheme
                 input_slice = (input_slice - input_slice.min()) / (input_slice.max() - input_slice.min())
@@ -186,16 +186,19 @@ def get_latest_checkpoint(checkpoint_dir):
 def train():
     torch.set_float32_matmul_precision('high')
 
-    organelle = "lyso"
+    organelle = "mito"
     config = {
         'batch_size': 32,
         'latent_dim': 256,
         'max_epochs': 10000,
-        'data_path': rf'C:\Users\eva.bones\Documents\Diffusion-SDF\testing\{organelle}_sdf',
-        'checkpoint_path': './checkpoints/'
+        'data_path': rf'C:\Users\evabo\Documents\Repos\Diffusion-SDF\dataset\sdf\{organelle}',
+      #  'checkpoint_path': './checkpoints/'
     }
 
-    checkpoint = get_latest_checkpoint(config['checkpoint_path'])
+    if 'checkpoint_path' not in config:
+        checkpoint = None
+    else:
+        checkpoint = get_latest_checkpoint(config['checkpoint_path'])
 
     date = datetime.datetime.now(pytz.timezone("Europe/Berlin"))
     formatted_date = date.strftime("%d/%m")
@@ -206,7 +209,7 @@ def train():
 
     train_transform = transforms.Compose([
         RandomFlip3D(p=0.5),  # 50% chance per axis
-        CropCenter3D(target_size=64),  # Center crop to 64x64x64
+        CropCenter3D(target_size=128),  # Center crop to 64x64x64
     ])
 
     dataset = VoxelSDFDataset(config['data_path'], transform=train_transform)
