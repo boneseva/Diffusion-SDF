@@ -53,8 +53,12 @@ class CropCenter3D:
 class VoxelSDFDataset(Dataset):
     def __init__(self, sdf_dir, transform=None):
         self.transform = transform
-        self.sdf_files = [os.path.join(sdf_dir, f) for f in os.listdir(sdf_dir)
-                          if f.endswith(('.nii', '.nii.gz'))]
+        self.sdf_files = [
+            os.path.join(root, f)
+            for root, _, files in os.walk(sdf_dir)
+            for f in files
+            if f.endswith(('.nii', '.nii.gz'))
+        ]
 
         self.buffer = []
         for f in tqdm(self.sdf_files, desc="Loading SDF volumes"):
@@ -88,13 +92,13 @@ class VoxelVAE(pl.LightningModule):
             nn.Conv3d(128, 256, 3, stride=2, padding=1),
             nn.GELU(),
             nn.Flatten(),
-            nn.Linear(256 * 8 * 8 * 8, latent_dim * 2)
+            nn.Linear(256 * 32 * 32 * 32, latent_dim * 2)
         )
 
         # Decoder
         self.decoder = nn.Sequential(
-            nn.Linear(latent_dim, 256 * 8 * 8 * 8),
-            View((-1, 256, 8, 8, 8)),
+            nn.Linear(latent_dim, 256 * 32 * 32 * 32),
+            View((-1, 256, 32, 32, 32)),
             nn.ConvTranspose3d(256, 128, 3, stride=2, padding=1, output_padding=1),
             nn.GELU(),
             nn.ConvTranspose3d(128, 64, 3, stride=2, padding=1, output_padding=1),
@@ -187,15 +191,19 @@ def train():
     torch.set_float32_matmul_precision('high')
 
     organelle = "mito"
+    if organelle == "all":
+        data_path = r".\dataset\sdf"
+    else:
+        data_path = rf".\dataset\sdf\{organelle}"
     config = {
         'batch_size': 32,
         'latent_dim': 256,
         'max_epochs': 10000,
-        'data_path': rf'.\dataset\sdf\{organelle}',
-      #  'checkpoint_path': './checkpoints/'
+        'data_path': data_path,
+        'checkpoint_path': None
     }
 
-    if 'checkpoint_path' not in config:
+    if config['checkpoint_path'] is None:
         checkpoint = None
     else:
         checkpoint = get_latest_checkpoint(config['checkpoint_path'])
