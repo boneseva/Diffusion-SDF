@@ -94,13 +94,13 @@ class VoxelVAE(pl.LightningModule):
             nn.Conv3d(128, 256, 3, stride=2, padding=1),
             nn.GELU(),
             nn.Flatten(),
-            nn.Linear(256 * 32 * 32 * 32, latent_dim * 2)
+            nn.Linear(256 * 16 * 16 * 16, latent_dim * 2)
         )
 
         # Decoder
         self.decoder = nn.Sequential(
-            nn.Linear(latent_dim, 256 * 32 * 32 * 32),
-            View((-1, 256, 32, 32, 32)),
+            nn.Linear(latent_dim, 256 * 16 * 16 * 16),
+            View((-1, 256, 16, 16, 16)),
             nn.ConvTranspose3d(256, 128, 3, stride=2, padding=1, output_padding=1),
             nn.GELU(),
             nn.ConvTranspose3d(128, 64, 3, stride=2, padding=1, output_padding=1),
@@ -189,16 +189,15 @@ def get_latest_checkpoint(checkpoint_dir):
     latest_checkpoint = max(checkpoints, key=lambda x: os.path.getctime(os.path.join(checkpoint_dir, x)))
     return os.path.join(checkpoint_dir, latest_checkpoint)
 
-def train(test_mode=False):
+def train(organelle, test_mode=False):
     torch.set_float32_matmul_precision('high')
 
-    organelle = "mito"
     if organelle == "all":
         data_path = r"..\dataset\sdf"
     else:
         data_path = rf"..\dataset\sdf\{organelle}"
     config = {
-        'batch_size': 32,
+        'batch_size': 4,
         'latent_dim': 256,
         'max_epochs': 10000,
         'data_path': data_path,
@@ -260,6 +259,7 @@ if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser(description="Training script")
     parser.add_argument("--test", help="Enable test mode", action="store_true")
+    parser.add_argument("--organelle", type=str, default="lyso", help="Organelle to train on")
     args = parser.parse_args()
 
-    train(args.test)
+    train(args.organelle, args.test)
