@@ -8,7 +8,6 @@ def process_nifti_file(file, input_path, output_path):
     nii = nib.load(input_path)
     data = nii.get_fdata().astype(bool).astype(np.uint8)
     # separate objects inside data into its own volumes
-    data = data > 0
     labeled_data, num_features = ndimage.label(data)
     volumes = []
     for i in range(1, num_features + 1):
