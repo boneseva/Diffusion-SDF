@@ -11,7 +11,7 @@ def read_csv(file_path):
 
 
 if __name__ == '__main__':
-    file_path = r"C:\Users\evabo\Documents\Repos\Diffusion-SDF\data\acronym\Couch\37cfcafe606611d81246538126da07a8\sdf_data.csv"
+    file_path = r"/data/acronym/Couch/37cfcafe606611d81246538126da07a8/sdf_data.csv"
 #    file_path = r"C:\Users\evabo\Documents\Repos\Diffusion-SDF\data\grid_data\acronym\Couch\37cfcafe606611d81246538126da07a8\grid_gt.csv"
     data = read_csv(file_path)
 

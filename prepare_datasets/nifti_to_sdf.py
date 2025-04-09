@@ -39,7 +39,10 @@ def process_nifti_file(input_path, target_shape=(80, 80, 80)):
     nii = nib.load(input_path)
     data = nii.get_fdata().astype(bool).astype(np.uint8)  # Ensure binary input
 
-    # Pad the volume
+    # check how many ones are in the data
+    if np.sum(data) < 250:
+        raise ValueError("Input volume is too small to process.")
+
     padded_data = pad_to_target_shape(data, target_shape)
 
     # Compute the SDF
@@ -79,18 +82,22 @@ def process_all_nifti_files(input_folder, output_folder, target_shape=(80, 80, 8
                 sdf_nii = nib.Nifti1Image(sdf_volume.astype(np.float32), nii.affine)
                 nib.save(sdf_nii, output_path)
 
-                print(f"Processed and saved SDF for: {file}")
+                print(f".", end="")
             except Exception as e:
                 print(f"Error processing {file}: {e}")
 
 
 if __name__ == "__main__":
     # Input and output directories
-    input_dir = r"C:\Users\evabo\Documents\Repos\Statistic-Models-For-Cellular-Structures\lyso_single\In_center\Framed"
-    output_dir = r"C:\Users\evabo\Documents\Repos\Diffusion-SDF\testing\lyso_sdf"
+    for organelle in ["mito", "lyso", "golgi", "fv"]:
+        print("=================================")
+        print("Processing organelle:", organelle)
+        print("=================================")
+        input_dir = rf"C:\Users\evabo\Documents\Repos\Diffusion-SDF\dataset\{organelle}"
+        output_dir = rf"C:\Users\evabo\Documents\Repos\Diffusion-SDF\dataset\sdf\{organelle}"
 
-    # Target shape for padding
-    target_resolution = (128, 128, 128)
+        # Target shape for padding
+        target_resolution = (256, 256, 256)
 
-    # Process all files in the input directory
-    process_all_nifti_files(input_dir, output_dir, target_resolution)
+        # Process all files in the input directory
+        process_all_nifti_files(input_dir, output_dir, target_resolution)
