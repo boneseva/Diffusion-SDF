@@ -191,7 +191,7 @@ def train():
         'batch_size': 32,
         'latent_dim': 256,
         'max_epochs': 10000,
-        'data_path': rf'C:\Users\evabo\Documents\Repos\Diffusion-SDF\dataset\sdf\{organelle}',
+        'data_path': rf'.\dataset\sdf\{organelle}',
       #  'checkpoint_path': './checkpoints/'
     }
 
