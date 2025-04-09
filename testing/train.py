@@ -51,7 +51,7 @@ class CropCenter3D:
 
 
 class VoxelSDFDataset(Dataset):
-    def __init__(self, sdf_dir, transform=None):
+    def __init__(self, sdf_dir, transform=None, max_size=None):
         self.transform = transform
         self.sdf_files = [
             os.path.join(root, f)
@@ -59,6 +59,8 @@ class VoxelSDFDataset(Dataset):
             for f in files
             if f.endswith(('.nii', '.nii.gz'))
         ]
+        if max_size is not None:
+            self.sdf_files = self.sdf_files[:max_size]
 
         self.buffer = []
         for f in tqdm(self.sdf_files, desc="Loading SDF volumes"):
@@ -187,14 +189,14 @@ def get_latest_checkpoint(checkpoint_dir):
     latest_checkpoint = max(checkpoints, key=lambda x: os.path.getctime(os.path.join(checkpoint_dir, x)))
     return os.path.join(checkpoint_dir, latest_checkpoint)
 
-def train():
+def train(test_mode=False):
     torch.set_float32_matmul_precision('high')
 
     organelle = "mito"
     if organelle == "all":
-        data_path = r".\dataset\sdf"
+        data_path = r"..\dataset\sdf"
     else:
-        data_path = rf".\dataset\sdf\{organelle}"
+        data_path = rf"..\dataset\sdf\{organelle}"
     config = {
         'batch_size': 32,
         'latent_dim': 256,
@@ -220,7 +222,11 @@ def train():
         CropCenter3D(target_size=128),  # Center crop to 64x64x64
     ])
 
-    dataset = VoxelSDFDataset(config['data_path'], transform=train_transform)
+    if test_mode:
+        max_size = 10
+    else: max_size = None
+
+    dataset = VoxelSDFDataset(config['data_path'], transform=train_transform, max_size=max_size)
     loader = DataLoader(
         dataset,
         batch_size=config['batch_size'],
@@ -250,4 +256,10 @@ def train():
 
 
 if __name__ == '__main__':
-    train()
+    # get arguments
+    import argparse
+    parser = argparse.ArgumentParser(description="Training script")
+    parser.add_argument("--test", help="Enable test mode", action="store_true")
+    args = parser.parse_args()
+
+    train(args.test)
